@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FitLog - מעקב אימונים בחדר כושר</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                            accent: '#06b6d4'
+                        },
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b',
+                        cardhover: '#334155'
+                    },
+                    fontFamily: {
+                        hebrew: ['Rubik', 'Heebo', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Rubik', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Custom scrollbar for active mobile view */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+
+        /* Pulsing animation for active workout timer badge */
+        @keyframes pulse-emerald {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.03); }
+        }
+        .pulse-active {
+            animation: pulse-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Hide number input spinners for clean input UI */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-20 md:pb-0 md:pt-16">
+
+    <!-- Top Header -->
+    <header class="fixed top-0 left-0 right-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-3 space-x-reverse">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center text-white font-bold text-xl shadow-md shadow-brand-500/20">
+                <i class="fa-solid font-black fa-dumbbell"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-lg text-white tracking-tight leading-none">FitLog <span class="text-xs font-normal text-brand-500 bg-brand-900/50 px-2 py-0.5 rounded-full border border-brand-500/30">PRO</span></h1>
+                <p class="text-xs text-slate-400 mt-0.5">מעקב אימונים אישי</p>
+            </div>
+        </div>
+
+        <!-- Active Workout Indicator Button (visible when minimized or on another tab) -->
+        <div id="workoutHeaderBadge" class="hidden">
+            <button onclick="switchTab('activeWorkout')" class="flex items-center gap-2 bg-brand-500/20 border border-brand-500/50 text-brand-500 px-3 py-1.5 rounded-full text-xs font-bold pulse-active hover:bg-brand-500/30 transition">
+                <span class="w-2 h-2 rounded-full bg-brand-500 animate-ping"></span>
+                <span>אימון פעיל: </span>
+                <span id="headerWorkoutTimer">00:00</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-3xl w-full mx-auto p-4 mt-14 mb-6">
+        
+        <!-- TAB 1: ACTIVE WORKOUT -->
+        <section id="tab-activeWorkout" class="tab-content space-y-5">
+            
+            <!-- STATE A: No Active Workout -->
+            <div id="noActiveWorkoutView" class="bg-cardbg rounded-2xl p-6 border border-slate-800 text-center shadow-xl space-y-6">
+                <div class="w-20 h-20 bg-slate-800/80 rounded-full flex items-center justify-center mx-auto text-brand-500 text-3xl border border-slate-700 shadow-inner">
+                    <i class="fa-solid fa-play"></i>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-white">מוכן לאימון של היום?</h2>
+                    <p class="text-slate-400 text-sm mt-1">התחל אימון חדש מתוך תוכנית או בנה אימון תוך כדי תנועה</p>
+                </div>
+
+                <!-- Quick Start Button -->
+                <button onclick="startNewWorkout()" class="w-full py-4 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white font-bold text-lg rounded-xl shadow-lg shadow-brand-500/25 active:scale-[0.98] transition flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-bolt text-yellow-300"></i>
+                    <span>התחל אימון חדש ריק</span>
+                </button>
+
+                <!-- Quick Preset Routines -->
+                <div class="pt-4 border-t border-slate-800/80">
+                    <p class="text-xs font-semibold text-slate-400 mb-3 text-right">תבניות אימון מהירות:</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="startPresetWorkout('Push')" class="p-3 bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/60 rounded-xl text-right transition group">
+                            <span class="block text-sm font-bold text-slate-200 group-hover:text-brand-500">Push</span>
+                            <span class="text-[11px] text-slate-400">חזה, כתפיים, יד אחורית</span>
+                        </button>
+                        <button onclick="startPresetWorkout('Pull')" class="p-3 bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/60 rounded-xl text-right transition group">
+                            <span class="block text-sm font-bold text-slate-200 group-hover:text-brand-500">Pull</span>
+                            <span class="text-[11px] text-slate-400">גב, יד קדמית</span>
+                        </button>
+                        <button onclick="startPresetWorkout('Legs')" class="p-3 bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/60 rounded-xl text-right transition group">
+                            <span class="block text-sm font-bold text-slate-200 group-hover:text-brand-500">Legs</span>
+                            <span class="text-[11px] text-slate-400">רגליים, בטן</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATE B: Active Workout Session -->
+            <div id="activeWorkoutView" class="hidden space-y-5">
+                
+                <!-- Workout Header Card -->
+                <div class="bg-cardbg rounded-2xl p-4 border border-brand-500/30 shadow-lg relative overflow-hidden">
+                    <div class="absolute -left-10 -top-10 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                    
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="workoutTitleInput" value="אימון כוח" class="bg-transparent text-xl font-black text-white focus:outline-none focus:border-b border-brand-500 px-1 py-0.5 rounded w-48">
+                            <i class="fa-solid fa-pen text-xs text-slate-500"></i>
+                        </div>
+                        <div class="bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2 text-brand-500 font-mono font-bold text-base">
+                            <i class="fa-regular fa-clock"></i>
+                            <span id="activeWorkoutDuration">00:00:00</span>
+                        </div>
+                    </div>
+
+                    <!-- Actions Top Bar -->
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                        <span id="totalVolumeActive" class="text-slate-400">נפח כולל: <strong class="text-white font-bold">0 ק״ג</strong></span>
+                        <div class="flex gap-2">
+                            <button onclick="cancelActiveWorkout()" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/30 font-semibold transition">
+                                ביטול אימון
+                            </button>
+                            <button onclick="finishActiveWorkout()" class="px-4 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold shadow-md shadow-brand-500/20 active:scale-95 transition">
+                                סיום ושמירה <i class="fa-solid fa-check mr-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating Rest Timer Widget inside Active Workout -->
+                <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2 text-slate-200 font-bold text-sm">
+                            <i class="fa-solid fa-stopwatch text-brand-500"></i>
+                            <span>טיימר מנוחה</span>
+                        </div>
+                        <div id="restTimerDisplay" class="font-mono text-2xl font-black text-brand-500 tracking-wider">
+                            00:00
+                        </div>
+                    </div>
+
+                    <!-- Preset Quick Buttons -->
+                    <div class="grid grid-cols-5 gap-2">
+                        <button onclick="setRestTimer(30)" class="py-1.5 bg-slate-700/60 hover:bg-brand-500/20 hover:text-brand-400 text-slate-300 font-semibold rounded-lg text-xs transition border border-slate-600/50">30 ש׳</button>
+                        <button onclick="setRestTimer(60)" class="py-1.5 bg-slate-700/60 hover:bg-brand-500/20 hover:text-brand-400 text-slate-300 font-semibold rounded-lg text-xs transition border border-slate-600/50">60 ש׳</button>
+                        <button onclick="setRestTimer(90)" class="py-1.5 bg-slate-700/60 hover:bg-brand-500/20 hover:text-brand-400 text-slate-300 font-semibold rounded-lg text-xs transition border border-slate-600/50">90 ש׳</button>
+                        <button onclick="setRestTimer(120)" class="py-1.5 bg-slate-700/60 hover:bg-brand-500/20 hover:text-brand-400 text-slate-300 font-semibold rounded-lg text-xs transition border border-slate-600/50">2 דק׳</button>
+                        <button id="toggleTimerBtn" onclick="toggleRestTimer()" class="py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1">
+                            <i id="toggleTimerIcon" class="fa-solid fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Exercise List in Active Workout -->
+                <div id="activeExercisesContainer" class="space-y-4">
+                    <!-- Exercises will be dynamically injected here -->
+                </div>
+
+                <!-- Add Exercise Button -->
+                <button onclick="openExercisePickerModal()" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700/80 text-brand-500 border border-dashed border-brand-500/40 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-md active:scale-[0.99]">
+                    <i class="fa-solid fa-plus-circle text-base"></i>
+                    <span>הוסף תרגיל לאימון</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 2: EXERCISE LIBRARY -->
+        <section id="tab-exerciseLibrary" class="tab-content hidden space-y-4">
+            
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold text-white">ספריית תרגילים</h2>
+                <button onclick="openAddCustomExerciseModal()" class="px-3 py-1.5 bg-brand-500/20 border border-brand-500/40 hover:bg-brand-500/30 text-brand-400 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>תרגיל אישי</span>
+                </button>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="space-y-3">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute right-3.5 top-3 text-slate-400 text-sm"></i>
+                    <input type="text" id="exerciseSearchInput" oninput="filterExercises()" placeholder="חפש תרגיל..." class="w-full bg-cardbg border border-slate-700/80 rounded-xl pr-10 pl-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500 placeholder-slate-500 shadow-sm">
+                </div>
+
+                <!-- Category Filters Horizontal Chips -->
+                <div class="flex gap-2 overflow-x-auto pb-1 text-xs no-scrollbar" id="categoryFilterContainer">
+                    <button onclick="filterCategory('all')" class="category-chip active px-3.5 py-1.5 rounded-full bg-brand-500 text-white font-semibold whitespace-nowrap shadow-sm">הכל</button>
+                    <button onclick="filterCategory('חזה')" class="category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700">חזה</button>
+                    <button onclick="filterCategory('גב')" class="category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700">גב</button>
+                    <button onclick="filterCategory('רגליים')" class="category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700">רגליים</button>
+                    <button onclick="filterCategory('כתפיים')" class="category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700">כתפיים</button>
+                    <button onclick="filterCategory('זרועות')" class="category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700">זרועות</button>
+                    <button onclick="filterCategory('בטן')" class="category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700">בטן</button>
+                </div>
+            </div>
+
+            <!-- Exercises List Grid -->
+            <div id="exerciseLibraryList" class="grid grid-cols-1 gap-3">
+                <!-- Exercises dynamically populated -->
+            </div>
+        </section>
+
+        <!-- TAB 3: WORKOUT HISTORY -->
+        <section id="tab-history" class="tab-content hidden space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold text-white">היסטוריית אימונים</h2>
+                <span id="historyCountBadge" class="text-xs font-semibold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">0 אימונים</span>
+            </div>
+
+            <div id="historyListContainer" class="space-y-4">
+                <!-- History logs inserted dynamically -->
+            </div>
+        </section>
+
+        <!-- TAB 4: STATISTICS -->
+        <section id="tab-stats" class="tab-content hidden space-y-5">
+            <h2 class="text-xl font-bold text-white">סטטיסטיקה והתקדמות</h2>
+
+            <!-- Quick Metrics Grid -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-cardbg border border-slate-800 p-4 rounded-2xl shadow-md">
+                    <p class="text-xs text-slate-400 mb-1">סה״כ אימונים</p>
+                    <p id="statTotalWorkouts" class="text-2xl font-black text-brand-500">0</p>
+                </div>
+                <div class="bg-cardbg border border-slate-800 p-4 rounded-2xl shadow-md">
+                    <p class="text-xs text-slate-400 mb-1">נפח כולל שהורם</p>
+                    <p id="statTotalVolume" class="text-2xl font-black text-brand-accent">0 ק״ג</p>
+                </div>
+                <div class="bg-cardbg border border-slate-800 p-4 rounded-2xl shadow-md">
+                    <p class="text-xs text-slate-400 mb-1">זמן אימון מצטבר</p>
+                    <p id="statTotalTime" class="text-2xl font-black text-purple-400">0 דק׳</p>
+                </div>
+                <div class="bg-cardbg border border-slate-800 p-4 rounded-2xl shadow-md">
+                    <p class="text-xs text-slate-400 mb-1">ממוצע לאימון</p>
+                    <p id="statAvgDuration" class="text-2xl font-black text-amber-400">0 דק׳</p>
+                </div>
+            </div>
+
+            <!-- Volume Progress Chart Card -->
+            <div class="bg-cardbg border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+                <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-brand-500"></i>
+                    <span>נפח אימונים אחרונים (ק״ג)</span>
+                </h3>
+                <div class="h-44 w-full flex items-end justify-between gap-2 pt-4 px-2" id="volumeChartContainer">
+                    <p class="text-xs text-slate-500 w-full text-center py-10">אין מספיק נתונים להצגת גרף</p>
+                </div>
+            </div>
+
+            <!-- Personal Records (PRs) Card -->
+            <div class="bg-cardbg border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+                <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-yellow-400"></i>
+                    <span>שיאים אישיים (PR)</span>
+                </h3>
+                <div id="personalRecordsContainer" class="space-y-2">
+                    <!-- PRs rendered dynamically -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Mobile Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-2 shadow-2xl">
+        <div class="max-w-md mx-auto grid grid-cols-4 gap-1 text-center">
+            
+            <button onclick="switchTab('activeWorkout')" id="nav-activeWorkout" class="nav-btn active flex flex-col items-center py-1 px-2 rounded-xl text-brand-500 transition">
+                <i class="fa-solid fa-dumbbell text-lg mb-0.5"></i>
+                <span class="text-[10px] font-bold">אימון</span>
+            </button>
+
+            <button onclick="switchTab('exerciseLibrary')" id="nav-exerciseLibrary" class="nav-btn flex flex-col items-center py-1 px-2 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-book-open text-lg mb-0.5"></i>
+                <span class="text-[10px] font-semibold">ספרייה</span>
+            </button>
+
+            <button onclick="switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center py-1 px-2 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-clock-rotate-left text-lg mb-0.5"></i>
+                <span class="text-[10px] font-semibold">היסטוריה</span>
+            </button>
+
+            <button onclick="switchTab('stats')" id="nav-stats" class="nav-btn flex flex-col items-center py-1 px-2 rounded-xl text-slate-400 hover:text-slate-200 transition">
+                <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i>
+                <span class="text-[10px] font-semibold">סטטיסטיקה</span>
+            </button>
+
+        </div>
+    </nav>
+
+    <!-- MODAL 1: Exercise Selector Modal -->
+    <div id="exercisePickerModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-cardbg border border-slate-700 w-full max-w-lg rounded-t-3xl sm:rounded-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <!-- Modal Header -->
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-bold text-white text-base">בחר תרגיל להוספה</h3>
+                <button onclick="closeExercisePickerModal()" class="w-8 h-8 text-slate-400 hover:text-white flex items-center justify-center rounded-full bg-slate-800">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <!-- Filter Search inside Modal -->
+            <div class="p-3 border-b border-slate-800 space-y-2">
+                <input type="text" id="modalSearchInput" oninput="renderModalExercises()" placeholder="חפש תרגיל..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <!-- Modal Exercises List -->
+            <div id="modalExerciseList" class="p-4 overflow-y-auto space-y-2 flex-1">
+                <!-- Dynamically rendered exercises -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Add Custom Exercise Modal -->
+    <div id="addCustomExerciseModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-cardbg border border-slate-700 w-full max-w-md rounded-2xl p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-white text-base">הוספת תרגיל מותאם אישית</h3>
+                <button onclick="closeAddCustomExerciseModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleCustomExerciseSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">שם התרגיל</label>
+                    <input type="text" id="customExerciseName" required placeholder="לדוגמה: לחיצת חזה כנגד מוט במשיכה" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">קבוצת שריר ראשית</label>
+                    <select id="customExerciseMuscle" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+                        <option value="חזה">חזה</option>
+                        <option value="גב">גב</option>
+                        <option value="רגליים">רגליים</option>
+                        <option value="כתפיים">כתפיים</option>
+                        <option value="זרועות">זרועות</option>
+                        <option value="בטן">בטן</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeAddCustomExerciseModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl">ביטול</button>
+                    <button type="submit" class="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl shadow-md">שמור תרגיל</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- UI Notification Toast -->
+    <div id="toastNotification" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-brand-600 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-4">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="toastMessage">הודעה</span>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        
+        // DEFAULT INITIAL EXERCISE DATABASE
+        const DEFAULT_EXERCISES = [
+            { id: 'ex-1', name: 'לחיצת חזה בשכיבה (Bench Press)', muscle: 'חזה' },
+            { id: 'ex-2', name: 'לחיצת חזה בשיפוע חיובי עם משקוליות', muscle: 'חזה' },
+            { id: 'ex-3', name: 'פרפר בכבלים (Cable Flyes)', muscle: 'חזה' },
+            { id: 'ex-4', name: 'מתח (Pull-ups)', muscle: 'גב' },
+            { id: 'ex-5', name: 'פולי עליון באחיזה רחבה', muscle: 'גב' },
+            { id: 'ex-6', name: 'חתירה בהטיית גו (Barbell Row)', muscle: 'גב' },
+            { id: 'ex-7', name: 'סקוואט עם מוט (Barbell Squat)', muscle: 'רגליים' },
+            { id: 'ex-8', name: 'לחיצת רגליים במכונה (Leg Press)', muscle: 'רגליים' },
+            { id: 'ex-9', name: 'פשטת ברכיים במכונה', muscle: 'רגליים' },
+            { id: 'ex-10', name: 'דדליפט קלאסי (Deadlift)', muscle: 'גב' },
+            { id: 'ex-11', name: 'לחיצת כתפיים במילטרי פרס', muscle: 'כתפיים' },
+            { id: 'ex-12', name: 'הרחקה לצדדים עם משקוליות', muscle: 'כתפיים' },
+            { id: 'ex-13', name: 'כפילת מרפקים עם מוט (Bicep Curls)', muscle: 'זרועות' },
+            { id: 'ex-14', name: 'פשטת מרפקים בפולי עליון (Tricep Pushdown)', muscle: 'זרועות' },
+            { id: 'ex-15', name: 'פלאנק (Plank)', muscle: 'בטן' },
+            { id: 'ex-16', name: 'כפיפות בטן בשיפוע', muscle: 'בטן' }
+        ];
+
+        // APP STATE VARIABLES
+        let exercises = [];
+        let workoutHistory = [];
+        let activeWorkout = null; // Object or null
+        let workoutTimerInterval = null;
+        let restTimerInterval = null;
+        let restTimerRemaining = 0;
+        let activeCategoryFilter = 'all';
+
+
+        function loadFromLocalStorage() {
+            try {
+                // Load Exercises
+                const storedEx = localStorage.getItem('fitlog_exercises');
+                if (storedEx) {
+                    exercises = JSON.parse(storedEx);
+                } else {
+                    exercises = [...DEFAULT_EXERCISES];
+                    saveExercisesToStorage();
+                }
+
+                // Load History
+                const storedHistory = localStorage.getItem('fitlog_history');
+                if (storedHistory) {
+                    workoutHistory = JSON.parse(storedHistory);
+                }
+
+                // Load Active Workout
+                const storedActive = localStorage.getItem('fitlog_active_workout');
+                if (storedActive) {
+                    activeWorkout = JSON.parse(storedActive);
+                }
+            } catch (err) {
+                console.error("Failed loading local storage", err);
+                exercises = [...DEFAULT_EXERCISES];
+            }
+        }
+
+        function saveExercisesToStorage() {
+            localStorage.setItem('fitlog_exercises', JSON.stringify(exercises));
+        }
+
+        function saveHistoryToStorage() {
+            localStorage.setItem('fitlog_history', JSON.stringify(workoutHistory));
+        }
+
+        function saveActiveWorkoutToStorage() {
+            if (activeWorkout) {
+                localStorage.setItem('fitlog_active_workout', JSON.stringify(activeWorkout));
+            } else {
+                localStorage.removeItem('fitlog_active_workout');
+            }
+        }
+
+
+        function startNewWorkout(title = "אימון כוח") {
+            activeWorkout = {
+                id: 'wo-' + Date.now(),
+                title: title,
+                startTime: Date.now(),
+                exercises: []
+            };
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+            startWorkoutTimer();
+            switchTab('activeWorkout');
+            showToast("אימון חדש התחיל! בהצלחה 💪");
+        }
+
+        function startPresetWorkout(type) {
+            let presetExercises = [];
+            if (type === 'Push') {
+                presetExercises = ['ex-1', 'ex-2', 'ex-11', 'ex-12', 'ex-14'];
+            } else if (type === 'Pull') {
+                presetExercises = ['ex-4', 'ex-5', 'ex-6', 'ex-13'];
+            } else if (type === 'Legs') {
+                presetExercises = ['ex-7', 'ex-8', 'ex-9', 'ex-15'];
+            }
+
+            activeWorkout = {
+                id: 'wo-' + Date.now(),
+                title: `אימון ${type}`,
+                startTime: Date.now(),
+                exercises: presetExercises.map(id => {
+                    const found = exercises.find(e => e.id === id);
+                    return {
+                        exerciseId: id,
+                        name: found ? found.name : 'תרגיל',
+                        muscle: found ? found.muscle : 'כללי',
+                        sets: [
+                            { weight: 0, reps: 0, completed: false }
+                        ]
+                    };
+                })
+            };
+
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+            startWorkoutTimer();
+            switchTab('activeWorkout');
+            showToast(`התחלת אימון ${type}!`);
+        }
+
+        function startWorkoutTimer() {
+            if (workoutTimerInterval) clearInterval(workoutTimerInterval);
+            
+            workoutTimerInterval = setInterval(() => {
+                if (!activeWorkout) return;
+                const elapsedSeconds = Math.floor((Date.now() - activeWorkout.startTime) / 1000);
+                
+                const hrs = Math.floor(elapsedSeconds / 3600);
+                const mins = Math.floor((elapsedSeconds % 3600) / 60);
+                const secs = elapsedSeconds % 60;
+
+                const formatted = `${hrs > 0 ? String(hrs).padStart(2, '0') + ':' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                
+                const timerEl = document.getElementById('activeWorkoutDuration');
+                const headerTimerEl = document.getElementById('headerWorkoutTimer');
+                if (timerEl) timerEl.innerText = formatted;
+                if (headerTimerEl) headerTimerEl.innerText = formatted;
+            }, 1000);
+        }
+
+        function addExerciseToActiveWorkout(exerciseObj) {
+            if (!activeWorkout) {
+                startNewWorkout("אימון מותאם");
+            }
+
+            activeWorkout.exercises.push({
+                exerciseId: exerciseObj.id,
+                name: exerciseObj.name,
+                muscle: exerciseObj.muscle,
+                sets: [
+                    { weight: 0, reps: 0, completed: false }
+                ]
+            });
+
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+            closeExercisePickerModal();
+            showToast(`התרגיל "${exerciseObj.name}" נוסף לאימון`);
+        }
+
+        function addSetToExercise(exerciseIndex) {
+            if (!activeWorkout || !activeWorkout.exercises[exerciseIndex]) return;
+            const sets = activeWorkout.exercises[exerciseIndex].sets;
+            const lastSet = sets[sets.length - 1] || { weight: 0, reps: 0 };
+            
+            sets.push({
+                weight: lastSet.weight,
+                reps: lastSet.reps,
+                completed: false
+            });
+
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+        }
+
+        function removeSetFromExercise(exerciseIndex, setIndex) {
+            if (!activeWorkout || !activeWorkout.exercises[exerciseIndex]) return;
+            activeWorkout.exercises[exerciseIndex].sets.splice(setIndex, 1);
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+        }
+
+        function removeExerciseFromWorkout(exerciseIndex) {
+            if (!activeWorkout) return;
+            activeWorkout.exercises.splice(exerciseIndex, 1);
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+        }
+
+        function updateSetData(exerciseIndex, setIndex, field, value) {
+            if (!activeWorkout) return;
+            const val = parseFloat(value) || 0;
+            activeWorkout.exercises[exerciseIndex].sets[setIndex][field] = val;
+            saveActiveWorkoutToStorage();
+            updateActiveVolumeDisplay();
+        }
+
+        function toggleSetCompleted(exerciseIndex, setIndex) {
+            if (!activeWorkout) return;
+            const setObj = activeWorkout.exercises[exerciseIndex].sets[setIndex];
+            setObj.completed = !setObj.completed;
+            
+            saveActiveWorkoutToStorage();
+            renderActiveWorkout();
+
+            if (setObj.completed) {
+                // Auto trigger 60s rest timer if set marked completed
+                setRestTimer(60);
+                showToast("סט סומן כהושלם! טיימר מנוחה הופעל ⏱️");
+            }
+        }
+
+        function updateActiveVolumeDisplay() {
+            if (!activeWorkout) return;
+            let totalVolume = 0;
+            activeWorkout.exercises.forEach(ex => {
+                ex.sets.forEach(s => {
+                    if (s.completed) {
+                        totalVolume += (s.weight * s.reps);
+                    }
+                });
+            });
+            const volEl = document.getElementById('totalVolumeActive');
+            if (volEl) volEl.innerHTML = `נפח כולל: <strong class="text-white font-bold">${totalVolume.toLocaleString()} ק״ג</strong>`;
+        }
+
+        function finishActiveWorkout() {
+            if (!activeWorkout) return;
+
+            const durationSeconds = Math.floor((Date.now() - activeWorkout.startTime) / 1000);
+            const titleInput = document.getElementById('workoutTitleInput');
+            if (titleInput && titleInput.value) {
+                activeWorkout.title = titleInput.value.trim();
+            }
+
+            // Compute total volume
+            let totalVolume = 0;
+            let completedSetsCount = 0;
+            activeWorkout.exercises.forEach(ex => {
+                ex.sets.forEach(s => {
+                    if (s.completed) {
+                        totalVolume += (s.weight * s.reps);
+                        completedSetsCount++;
+                    }
+                });
+            });
+
+            const finishedWorkout = {
+                ...activeWorkout,
+                endTime: Date.now(),
+                durationSeconds: durationSeconds,
+                totalVolume: totalVolume,
+                completedSetsCount: completedSetsCount
+            };
+
+            workoutHistory.unshift(finishedWorkout);
+            saveHistoryToStorage();
+
+            activeWorkout = null;
+            saveActiveWorkoutToStorage();
+
+            if (workoutTimerInterval) clearInterval(workoutTimerInterval);
+
+            renderActiveWorkout();
+            renderHistory();
+            renderStats();
+            switchTab('history');
+            showToast("האימון נשמר בהצלחה ביומן! 🏆");
+        }
+
+        function cancelActiveWorkout() {
+            if (!activeWorkout) return;
+            if (confirm("האם אתה בטוח שברצונך לבטל את האימון הנוכחי? הנתונים שטרם נשמרו יימחקו.")) {
+                activeWorkout = null;
+                saveActiveWorkoutToStorage();
+                if (workoutTimerInterval) clearInterval(workoutTimerInterval);
+                renderActiveWorkout();
+                showToast("האימון בוטל.");
+            }
+        }
+
+
+        function playSoundBeep() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + 0.8);
+            } catch (e) {
+                console.log("Audio play blocked", e);
+            }
+        }
+
+        function setRestTimer(seconds) {
+            restTimerRemaining = seconds;
+            updateRestTimerUI();
+            
+            if (restTimerInterval) clearInterval(restTimerInterval);
+            
+            restTimerInterval = setInterval(() => {
+                restTimerRemaining--;
+                if (restTimerRemaining <= 0) {
+                    clearInterval(restTimerInterval);
+                    restTimerRemaining = 0;
+                    playSoundBeep();
+                    showToast("זמן המנוחה הסתיים! הגיע הזמן לסט הבא 🔥");
+                }
+                updateRestTimerUI();
+            }, 1000);
+        }
+
+        function toggleRestTimer() {
+            if (restTimerInterval) {
+                clearInterval(restTimerInterval);
+                restTimerInterval = null;
+                document.getElementById('toggleTimerIcon').className = 'fa-solid fa-play';
+            } else if (restTimerRemaining > 0) {
+                setRestTimer(restTimerRemaining);
+            }
+        }
+
+        function updateRestTimerUI() {
+            const mins = Math.floor(restTimerRemaining / 60);
+            const secs = restTimerRemaining % 60;
+            const displayStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            
+            const timerEl = document.getElementById('restTimerDisplay');
+            if (timerEl) timerEl.innerText = displayStr;
+
+            const iconEl = document.getElementById('toggleTimerIcon');
+            if (iconEl) {
+                iconEl.className = restTimerInterval ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            }
+        }
+
+
+        function filterCategory(cat) {
+            activeCategoryFilter = cat;
+            
+            // Update active state of chip buttons
+            const chips = document.querySelectorAll('.category-chip');
+            chips.forEach(chip => {
+                if (chip.innerText.trim() === cat || (cat === 'all' && chip.innerText.trim() === 'הכל')) {
+                    chip.className = 'category-chip active px-3.5 py-1.5 rounded-full bg-brand-500 text-white font-semibold whitespace-nowrap shadow-sm';
+                } else {
+                    chip.className = 'category-chip px-3.5 py-1.5 rounded-full bg-slate-800 text-slate-300 font-semibold whitespace-nowrap hover:bg-slate-700 border border-slate-700';
+                }
+            });
+
+            filterExercises();
+        }
+
+        function filterExercises() {
+            const query = (document.getElementById('exerciseSearchInput')?.value || '').toLowerCase().trim();
+            const listContainer = document.getElementById('exerciseLibraryList');
+            if (!listContainer) return;
+
+            const filtered = exercises.filter(ex => {
+                const matchesCat = (activeCategoryFilter === 'all' || ex.muscle === activeCategoryFilter);
+                const matchesSearch = ex.name.toLowerCase().includes(query) || ex.muscle.toLowerCase().includes(query);
+                return matchesCat && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<p class="text-center text-slate-500 text-xs py-8">לא נמצאו תרגילים מתאימים</p>`;
+                return;
+            }
+
+            listContainer.innerHTML = filtered.map(ex => `
+                <div class="bg-cardbg border border-slate-800/90 rounded-2xl p-3.5 flex items-center justify-between hover:border-slate-700 transition">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-800 text-brand-500 flex items-center justify-center font-bold text-sm border border-slate-700/60">
+                            ${getMuscleIcon(ex.muscle)}
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-white">${ex.name}</h4>
+                            <span class="text-[11px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700/50">${ex.muscle}</span>
+                        </div>
+                    </div>
+                    <button onclick="addExerciseToActiveWorkoutById('${ex.id}')" class="px-3 py-1.5 bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 rounded-xl text-xs font-bold border border-brand-500/30 transition flex items-center gap-1">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>הוסף</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addExerciseToActiveWorkoutById(id) {
+            const found = exercises.find(e => e.id === id);
+            if (found) {
+                addExerciseToActiveWorkout(found);
+            }
+        }
+
+        function getMuscleIcon(muscle) {
+            switch(muscle) {
+                case 'חזה': return '<i class="fa-solid fa-child"></i>';
+                case 'גב': return '<i class="fa-solid fa-shield-halved"></i>';
+                case 'רגליים': return '<i class="fa-solid fa-person-walking"></i>';
+                case 'כתפיים': return '<i class="fa-solid fa-user"></i>';
+                case 'זרועות': return '<i class="fa-solid fa-hand-fist"></i>';
+                case 'בטן': return '<i class="fa-solid fa-circle-dot"></i>';
+                default: return '<i class="fa-solid fa-dumbbell"></i>';
+            }
+        }
+
+        function openAddCustomExerciseModal() {
+            document.getElementById('addCustomExerciseModal').classList.remove('hidden');
+        }
+
+        function closeAddCustomExerciseModal() {
+            document.getElementById('addCustomExerciseModal').classList.add('hidden');
+        }
+
+        function handleCustomExerciseSubmit(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('customExerciseName');
+            const muscleInput = document.getElementById('customExerciseMuscle');
+
+            if (!nameInput.value.trim()) return;
+
+            const newEx = {
+                id: 'ex-custom-' + Date.now(),
+                name: nameInput.value.trim(),
+                muscle: muscleInput.value
+            };
+
+            exercises.push(newEx);
+            saveExercisesToStorage();
+            filterExercises();
+            closeAddCustomExerciseModal();
+            nameInput.value = '';
+            showToast("תרגיל חדש נשמר בספרייה!");
+        }
+
+
+        function renderHistory() {
+            const container = document.getElementById('historyListContainer');
+            const badge = document.getElementById('historyCountBadge');
+            if (!container) return;
+
+            if (badge) badge.innerText = `${workoutHistory.length} אימונים`;
+
+            if (workoutHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-cardbg rounded-2xl border border-slate-800 p-6 space-y-3">
+                        <i class="fa-solid fa-box-open text-4xl text-slate-600"></i>
+                        <p class="text-slate-400 text-sm">טרם בוצעו אימונים. היסטוריית האימונים שלך תופיע כאן!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = workoutHistory.map((wo, index) => {
+                const dateStr = new Date(wo.startTime).toLocaleDateString('he-IL', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                const mins = Math.floor((wo.durationSeconds || 0) / 60);
+
+                return `
+                    <div class="bg-cardbg border border-slate-800 rounded-2xl p-4 shadow-md space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                            <div>
+                                <h3 class="text-base font-black text-white">${wo.title || 'אימון כוח'}</h3>
+                                <p class="text-xs text-slate-400">${dateStr}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded-lg border border-slate-700">
+                                    <i class="fa-regular fa-clock text-brand-500 mr-1"></i>${mins} דק׳
+                                </span>
+                                <button onclick="deleteHistoryWorkout(${index})" class="text-slate-500 hover:text-rose-400 p-1.5 transition">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Exercises Summary -->
+                        <div class="space-y-2">
+                            ${wo.exercises.map(ex => {
+                                const completedSets = ex.sets.filter(s => s.completed);
+                                if (completedSets.length === 0) return '';
+                                const setsSummary = completedSets.map(s => `${s.weight}ק״ג × ${s.reps}`).join(' | ');
+                                return `
+                                    <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 text-xs flex flex-col gap-1">
+                                        <div class="flex justify-between font-bold text-slate-200">
+                                            <span>${ex.name}</span>
+                                            <span class="text-slate-400 font-normal">${completedSets.length} סטים</span>
+                                        </div>
+                                        <p class="text-slate-400 text-[11px] font-monoDir">${setsSummary}</p>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <!-- Footer Total Volume -->
+                        <div class="pt-1 flex justify-between items-center text-xs text-slate-400 font-medium">
+                            <span>נפח כולל שהורם:</span>
+                            <span class="text-brand-500 font-bold text-sm">${(wo.totalVolume || 0).toLocaleString()} ק״ג</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteHistoryWorkout(index) {
+            if (confirm("האם למחוק אימון זה מההיסטוריה?")) {
+                workoutHistory.splice(index, 1);
+                saveHistoryToStorage();
+                renderHistory();
+                renderStats();
+                showToast("האימון הוסר מההיסטוריה");
+            }
+        }
+
+
+        function renderStats() {
+            // Aggregate totals
+            const totalWorkouts = workoutHistory.length;
+            let totalVolume = 0;
+            let totalTimeSec = 0;
+            const prMap = {}; // { exerciseName: maxWeight }
+
+            workoutHistory.forEach(wo => {
+                totalVolume += (wo.totalVolume || 0);
+                totalTimeSec += (wo.durationSeconds || 0);
+
+                wo.exercises.forEach(ex => {
+                    ex.sets.forEach(s => {
+                        if (s.completed && s.weight > 0) {
+                            if (!prMap[ex.name] || s.weight > prMap[ex.name]) {
+                                prMap[ex.name] = s.weight;
+                            }
+                        }
+                    });
+                });
+            });
+
+            const totalMins = Math.floor(totalTimeSec / 60);
+            const avgMins = totalWorkouts > 0 ? Math.round(totalMins / totalWorkouts) : 0;
+
+            document.getElementById('statTotalWorkouts').innerText = totalWorkouts;
+            document.getElementById('statTotalVolume').innerText = `${totalVolume.toLocaleString()} ק״ג`;
+            document.getElementById('statTotalTime').innerText = `${totalMins} דק׳`;
+            document.getElementById('statAvgDuration').innerText = `${avgMins} דק׳`;
+
+            // Render Volume Chart (Simple Bar Visualization)
+            const chartContainer = document.getElementById('volumeChartContainer');
+            if (chartContainer) {
+                const recent = workoutHistory.slice(0, 7).reverse(); // Last 7 workouts
+                if (recent.length === 0) {
+                    chartContainer.innerHTML = `<p class="text-xs text-slate-500 w-full text-center py-10">אין מספיק נתונים להצגת גרף</p>`;
+                } else {
+                    const maxVol = Math.max(...recent.map(w => w.totalVolume || 1));
+                    chartContainer.innerHTML = recent.map(w => {
+                        const heightPct = Math.max(15, Math.round(((w.totalVolume || 0) / maxVol) * 100));
+                        const dateLabel = new Date(w.startTime).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' });
+                        return `
+                            <div class="flex-1 flex flex-col items-center h-full justify-end gap-1 group">
+                                <div class="text-[10px] text-brand-400 font-bold opacity-0 group-hover:opacity-100 transition">${(w.totalVolume||0)}</div>
+                                <div style="height: ${heightPct}%;" class="w-full bg-gradient-to-t from-brand-600 to-brand-accent rounded-t-lg transition-all duration-500 shadow-md"></div>
+                                <span class="text-[10px] text-slate-400 mt-1">${dateLabel}</span>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Render PRs
+            const prContainer = document.getElementById('personalRecordsContainer');
+            if (prContainer) {
+                const prKeys = Object.keys(prMap);
+                if (prKeys.length === 0) {
+                    prContainer.innerHTML = `<p class="text-xs text-slate-500 py-2">עדיין לא נרשמו שיאים אישיים</p>`;
+                } else {
+                    prContainer.innerHTML = prKeys.map(exName => `
+                        <div class="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 text-xs">
+                            <span class="font-bold text-slate-200">${exName}</span>
+                            <span class="font-black text-yellow-400 bg-yellow-400/10 px-2.5 py-1 rounded-lg border border-yellow-400/20">${prMap[exName]} ק״ג 🔥</span>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+
+        function renderActiveWorkout() {
+            const noActiveView = document.getElementById('noActiveWorkoutView');
+            const activeView = document.getElementById('activeWorkoutView');
+            const headerBadge = document.getElementById('workoutHeaderBadge');
+            const container = document.getElementById('activeExercisesContainer');
+
+            if (!activeWorkout) {
+                noActiveView.classList.remove('hidden');
+                activeView.classList.add('hidden');
+                headerBadge.classList.add('hidden');
+                return;
+            }
+
+            noActiveView.classList.add('hidden');
+            activeView.classList.remove('hidden');
+            headerBadge.classList.remove('hidden');
+
+            const titleInput = document.getElementById('workoutTitleInput');
+            if (titleInput) titleInput.value = activeWorkout.title;
+
+            updateActiveVolumeDisplay();
+
+            if (activeWorkout.exercises.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center bg-cardbg border border-slate-800 rounded-2xl space-y-2">
+                        <i class="fa-solid fa-dumbbell text-slate-600 text-3xl"></i>
+                        <p class="text-xs text-slate-400">אין תרגילים באימון זה עדיין. לחץ על הכפתור למטה להוספת תרגילים!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activeWorkout.exercises.map((ex, exIdx) => `
+                <div class="bg-cardbg border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-white text-base">${ex.name}</h3>
+                            <span class="text-[10px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">${ex.muscle}</span>
+                        </div>
+                        <button onclick="removeExerciseFromWorkout(${exIdx})" class="text-slate-500 hover:text-rose-400 p-1 transition">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+
+                    <!-- Sets Table -->
+                    <div class="space-y-2">
+                        <div class="grid grid-cols-12 text-[11px] text-slate-400 font-semibold px-2 text-center">
+                            <span class="col-span-2">סט</span>
+                            <span class="col-span-4">משקל (ק״ג)</span>
+                            <span class="col-span-4">חזרות</span>
+                            <span class="col-span-2">בוצע</span>
+                        </div>
+
+                        ${ex.sets.map((setObj, setIdx) => `
+                            <div class="grid grid-cols-12 items-center gap-2 p-1.5 rounded-xl ${setObj.completed ? 'bg-brand-950/40 border border-brand-500/30' : 'bg-slate-900/80 border border-slate-800'} transition">
+                                <span class="col-span-2 text-center font-bold text-xs text-slate-400">${setIdx + 1}</span>
+                                
+                                <input type="number" step="0.5" value="${setObj.weight || ''}" placeholder="0" oninput="updateSetData(${exIdx}, ${setIdx}, 'weight', this.value)" class="col-span-4 bg-slate-800 border border-slate-700 rounded-lg py-1 px-2 text-center text-sm text-white font-bold focus:outline-none focus:border-brand-500">
+                                
+                                <input type="number" value="${setObj.reps || ''}" placeholder="0" oninput="updateSetData(${exIdx}, ${setIdx}, 'reps', this.value)" class="col-span-4 bg-slate-800 border border-slate-700 rounded-lg py-1 px-2 text-center text-sm text-white font-bold focus:outline-none focus:border-brand-500">
+                                
+                                <div class="col-span-2 flex items-center justify-center gap-1">
+                                    <button onclick="toggleSetCompleted(${exIdx}, ${setIdx})" class="w-8 h-8 rounded-lg flex items-center justify-center transition ${setObj.completed ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' : 'bg-slate-800 text-slate-500 hover:text-slate-300'}">
+                                        <i class="fa-solid fa-check text-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Add Set Button -->
+                    <button onclick="addSetToExercise(${exIdx})" class="w-full py-1.5 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 font-semibold rounded-xl text-xs transition border border-slate-700 flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                        <span>הוסף סט</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Modal Handlers
+        function openExercisePickerModal() {
+            document.getElementById('exercisePickerModal').classList.remove('hidden');
+            renderModalExercises();
+        }
+
+        function closeExercisePickerModal() {
+            document.getElementById('exercisePickerModal').classList.add('hidden');
+        }
+
+        function renderModalExercises() {
+            const query = (document.getElementById('modalSearchInput')?.value || '').toLowerCase().trim();
+            const modalList = document.getElementById('modalExerciseList');
+            if (!modalList) return;
+
+            const filtered = exercises.filter(ex => ex.name.toLowerCase().includes(query) || ex.muscle.toLowerCase().includes(query));
+
+            modalList.innerHTML = filtered.map(ex => `
+                <div onclick="addExerciseToActiveWorkoutById('${ex.id}')" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer transition">
+                    <div>
+                        <h4 class="font-bold text-white text-xs">${ex.name}</h4>
+                        <span class="text-[10px] text-slate-400">${ex.muscle}</span>
+                    </div>
+                    <i class="fa-solid fa-circle-plus text-brand-500 text-base"></i>
+                </div>
+            `).join('');
+        }
+
+        // Navigation Tab Switching
+        function switchTab(tabId) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(t => t.classList.add('hidden'));
+
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => {
+                btn.className = 'nav-btn flex flex-col items-center py-1 px-2 rounded-xl text-slate-400 hover:text-slate-200 transition';
+            });
+
+            const activeNavBtn = document.getElementById(`nav-${tabId}`);
+            if (activeNavBtn) {
+                activeNavBtn.className = 'nav-btn active flex flex-col items-center py-1 px-2 rounded-xl text-brand-500 transition';
+            }
+
+            if (tabId === 'exerciseLibrary') filterExercises();
+            if (tabId === 'history') renderHistory();
+            if (tabId === 'stats') renderStats();
+        }
+
+        // Toast Notification Helper
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMessage');
+            if (!toast || !toastMsg) return;
+
+            toastMsg.innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+            }, 2500);
+        }
+
+        // Boot Application on Window Load
+        window.onload = function() {
+            loadFromLocalStorage();
+  
+        if (activeWorkout) {
+                startWorkoutTimer();
+            }
+            renderActiveWorkout();
+            filterExercises();
+            renderHistory();
+            renderStats();
+        };
+    </script>
+</body>
+</html>
